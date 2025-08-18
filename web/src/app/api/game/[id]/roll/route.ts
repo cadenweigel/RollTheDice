@@ -32,7 +32,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
 			const sum = dieA + dieB
 			const index = game.rollCount
 
-			await tx.roll.create({
+			const roll = await tx.roll.create({
 				data: {
 					gameId,
 					index,
@@ -53,13 +53,13 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
 			return {
 				status: 200 as const,
 				body: {
+					id: roll.id,
 					gameId,
 					index,
 					dieA,
 					dieB,
 					sum,
-					rollCount: updated.rollCount,
-					totalScore: updated.totalScore,
+					createdAt: roll.createdAt.toISOString(),
 				},
 			}
 		})
