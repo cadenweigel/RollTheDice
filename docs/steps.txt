@@ -1,0 +1,110 @@
+### High-level steps to ship this
+
+- **0. Clarify constraints**
+  - **Game rules**: 10 rolls per game, two dice per roll, total score = sum of all rolls.
+  - **Persistence**: Every roll saved; game summary saved; leaderboard by best game totals.
+  - **Visuals**: Three.js dice roll animation; 6x6 distribution (order matters).
+
+- **1. Project setup**
+  - Create Next.js (App Router, TypeScript).
+  - Add database and ORM (Prisma + SQLite for dev, Postgres for prod).
+  - Add Three.js (recommended: `@react-three/fiber` + `@react-three/drei`).
+  - Optional: add `zod` for input validation and `vitest`/`jest` for tests.
+
+- **2. Data model (Prisma or equivalent)**
+  - **`Game`**: `id`, `playerName`, `createdAt`, `completedAt`, `totalScore`, `rollCount` (0–10).
+  - **`Roll`**: `id`, `gameId`, `index` (0–9), `dieA` (1–6), `dieB` (1–6), `sum`, `createdAt`.
+  - A `Roll` consists of exactly two dice (`dieA`, `dieB`, each 1–6); `sum = dieA + dieB`.
+  - Indices on `gameId`, `createdAt`. Derive leaderboard from `Game.totalScore`.
+
+- **3. API routes (server-only)**
+  - `POST /api/game` → create new game; returns `gameId`.
+  - `POST /api/game/:id/roll` → server generates dice, stores `Roll`, updates `Game` totals; enforces max 10.
+  - `POST /api/game/:id/finish` → marks complete (idempotent).
+  - `GET /api/leaderboard?limit=50` → top games by `totalScore`, tie-breaker `createdAt`.
+  - `GET /api/stats` → returns:
+    - `totalScoreAllTime`, `totalGames`, `averageScorePerGame`
+    - `sumDistribution[2..12]`
+    - `pairDistribution[6][6]` (order matters)
+
+- **4. Game flow (UI)**
+  - `app/page.tsx` (Play):
+    - Start game → show dice canvas + roll button (disabled at 10/10 or completing).
+    - On roll: call API, animate dice, update list of rolls and running total.
+    - After 10 rolls: prompt for `playerName` and save/finish.
+  - State stored by `gameId`; never trust client for dice; only display API results.
+
+- **5. Three.js dice animation**
+  - Use `@react-three/fiber` `Canvas` with perspective camera, lights, plane, and GLTF dice model or procedurally modeled cube with pips.
+  - On roll: randomize physics impulses; let it settle; snap display to server-returned `dieA`/`dieB` (so visuals match truth).
+  - Keep animation isolated in `components/DiceCanvas.tsx`.
+
+- **6. Leaderboard page**
+  - `app/leaderboard/page.tsx`: table with `playerName`, `totalScore`, `createdAt`.
+  - Pagination or top-N; link to a game detail page `app/game/[id]/page.tsx` showing roll history.
+
+- **7. Stats page**
+  - `app/stats/page.tsx`:
+    - KPIs: total score, total games, average score.
+    - Sum distribution chart (2–12).
+    - 6x6 3D column grid (Three.js) for pair distribution where column height = count.
+
+- **8. Validation and edge cases**
+  - Server-side validation with `zod` or schema checks.
+  - Prevent rolling after game complete or after 10 rolls.
+  - Sanitize `playerName` and limit length.
+  - Handle retries/idempotency on roll/finish.
+
+- **9. Testing**
+  - Unit: roll generator (uniformity), API input validation, aggregation logic.
+  - Integration: start→roll→finish flow; leaderboard/stats queries.
+  - Seed script to create fake games for testing `stats` and 3D charts.
+
+- **10. Deployment**
+  - Use Postgres (Railway/Supabase). Set `DATABASE_URL`.
+  - Run migrations. Configure `NEXT_PUBLIC_*` only for safe public values.
+  - Enable image/model hosting for dice assets if used.
+
+- **11. Nice-to-haves (later)**
+  - Auth (optional) to prevent name spoofing.
+  - Share link to a finished game.
+  - Mobile haptics on roll.
+  - Animations/polish: confetti on high score, sound effects.
+
+### Minimal task checklist
+
+- **Scaffold**
+  - Next.js App Router + TS
+  - Install: Prisma, client, `@react-three/fiber`, `@react-three/drei`, `three`
+
+- **Database**
+  - Define `Game`, `Roll` schema
+  - Migrations; seed script
+
+- **API**
+  - `POST /api/game`
+  - `POST /api/game/:id/roll` (server RNG)
+  - `POST /api/game/:id/finish`
+  - `GET /api/leaderboard`
+  - `GET /api/stats`
+
+- **UI**
+  - `app/page.tsx` (play)
+  - `components/DiceCanvas.tsx`
+  - `app/leaderboard/page.tsx`
+  - `app/stats/page.tsx`
+
+- **QA**
+  - Tests for RNG/server limits/aggregations
+  - Seed + verify charts and leaderboard
+
+- **Ship**
+  - Postgres setup, deploy, env vars, run migrations
+
+- **Docs**
+  - Update `README.md` with run, migrate, seed, and deploy steps
+
+Small clarifications I can decide now if you want: pick Prisma + SQLite-for-dev/Postgres-for-prod, and use `@react-three/fiber` to simplify Three.js in React.
+
+- Key outputs: concrete steps to build the app end-to-end, with API, schema, UI pages, and Three.js integration.
+- Next: I can scaffold the Next.js app and set up Prisma models and API route stubs if you want me to create the files.

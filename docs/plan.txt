@@ -1,0 +1,21 @@
+The App:
+
+-roll the dice 
+-you get 10 rolls
+    -every roll should be entered in the database
+-score is totalled
+-user can add their name and score to leaderboard (saved in database)
+
+-user can view leaderboard of high scores
+-stats page that shows total stats
+    -total score rolled
+    -total games
+    -average score
+    -roll distribution
+        -total for each number
+        -2x2 grid with 3d columns, each x,y is a dice roll pair (order matters)
+
+software used:
+nextjs
+some sort of database
+threejs for rolling animations
