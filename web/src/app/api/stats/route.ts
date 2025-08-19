@@ -5,10 +5,33 @@ export const runtime = 'nodejs'
 
 export async function GET() {
 	try {
+		// Only count completed games
 		const [gameAgg, sumGroups, pairGroups] = await Promise.all([
-			prisma.game.aggregate({ _sum: { totalScore: true }, _count: true }),
-			prisma.roll.groupBy({ by: ['sum'], _count: { _all: true } }),
-			prisma.roll.groupBy({ by: ['dieA', 'dieB'], _count: { _all: true } }),
+			prisma.game.aggregate({ 
+				where: { completedAt: { not: null } },
+				_sum: { totalScore: true }, 
+				_count: true 
+			}),
+			// Only count rolls from completed games
+			prisma.roll.groupBy({ 
+				by: ['sum'], 
+				_count: { _all: true },
+				where: {
+					game: {
+						completedAt: { not: null }
+					}
+				}
+			}),
+			// Only count dice pairs from completed games
+			prisma.roll.groupBy({ 
+				by: ['dieA', 'dieB'], 
+				_count: { _all: true },
+				where: {
+					game: {
+						completedAt: { not: null }
+					}
+				}
+			}),
 		])
 
 		const totalScoreAllTime = gameAgg._sum.totalScore ?? 0
@@ -27,6 +50,12 @@ export async function GET() {
 			}
 		}
 
+		// Debug logging
+		console.log('API Debug - Game Agg:', gameAgg)
+		console.log('API Debug - Sum Groups:', sumGroups)
+		console.log('API Debug - Sum Distribution:', sumDistribution)
+		console.log('API Debug - Total Games:', totalGames)
+
 		return NextResponse.json({
 			totalScoreAllTime,
 			totalGames,
@@ -35,6 +64,7 @@ export async function GET() {
 			pairDistribution,
 		})
 	} catch (_error) {
+		console.error('API Error:', _error)
 		return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 })
 	}
 } 
