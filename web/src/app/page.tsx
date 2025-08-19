@@ -89,25 +89,39 @@ export default function Home() {
     if (!game || game.rollCount >= 10 || game.completedAt) return;
     
     setIsRolling(true);
+    // Don't make the API call yet - wait for the dice to finish rolling
+    // The DiceCanvas will call onRollComplete with the actual results
+  };
+
+  // Handle dice roll completion with actual results
+  const handleRollComplete = async (result: { dieA: number; dieB: number }) => {
+    if (!game) return;
+    
     try {
+      // Now make the API call with the actual dice results
       const response = await fetch(`/api/game/${game.id}/roll`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          dieA: result.dieA, 
+          dieB: result.dieB 
+        }),
       });
       
       if (response.ok) {
         const rollData = await response.json() as Roll;
         
-        // Store the roll data but don't update the UI yet
-        // Wait for the dice animation to complete before updating scorecard
-        setTimeout(() => {
-          setRolls(prev => [...prev, rollData]);
-          setGame(prev => prev ? { ...prev, rollCount: prev.rollCount + 1, totalScore: prev.totalScore + rollData.sum } : null);
-          setIsRolling(false);
-        }, 1500); // 1.5 seconds for dice to settle into final position
+        // Update the game state with the actual dice results
+        setRolls(prev => [...prev, rollData]);
+        setGame(prev => prev ? { 
+          ...prev, 
+          rollCount: prev.rollCount + 1, 
+          totalScore: prev.totalScore + rollData.sum 
+        } : null);
+        setIsRolling(false);
       }
     } catch (error) {
-      console.error('Failed to roll dice:', error);
+      console.error('Failed to record roll:', error);
       setIsRolling(false);
     }
   };
@@ -146,12 +160,13 @@ export default function Home() {
   const validationError = playerName.trim() && !isValidName ? 'Name must contain only letters, spaces, hyphens, apostrophes, and periods (1-50 characters).' : '';
 
   return (
-    <div className="w-full max-w-4xl px-6 flex flex-col items-center gap-8">
-      <h1 className="text-4xl font-bold text-center">Roll The Dice</h1>
+    <div className="w-full flex items-center justify-center">
+      <div className="w-full max-w-4xl px-6 flex flex-col items-center">
+      <h1 className="text-4xl font-bold text-center mb-1">Roll The Dice</h1>
       
       {/* Game Status */}
       {game && (
-        <div className="text-center">
+        <div className="text-center mb-1">
           <p className="text-lg">
             Rolls: {game.rollCount ?? 0}/10 | Total Score: {game.totalScore ?? 0}
           </p>
@@ -164,15 +179,16 @@ export default function Home() {
       )}
 
       {/* Dice Canvas */}
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl mb-1">
         <DiceCanvas 
           isRolling={isRolling}
           lastRoll={rolls.length > 0 ? rolls[rolls.length - 1] : null}
+          onRollComplete={handleRollComplete}
         />
       </div>
 
       {/* Game Controls */}
-      <div className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center mb-1">
         {!game ? (
           <button
             onClick={startGame}
@@ -181,7 +197,7 @@ export default function Home() {
             Start New Game
           </button>
         ) : (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center">
             <button
               onClick={rollDice}
               disabled={!canRoll}
@@ -196,8 +212,8 @@ export default function Home() {
             
             {isGameComplete && !game.completedAt && (
               <div className="text-center">
-                <p className="text-lg mb-4">Game Complete! Enter your name to save your score.</p>
-                <div className="flex flex-col gap-3 items-center">
+                <p className="text-lg mb-1">Game Complete! Enter your name to save your score.</p>
+                <div className="flex flex-col items-center">
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -231,7 +247,7 @@ export default function Home() {
             
             {game.completedAt && (
               <div className="text-center">
-                <p className="text-lg text-green-600 mb-4">Game saved! Final score: {game.totalScore}</p>
+                <p className="text-lg text-green-600 mb-1">Game saved! Final score: {game.totalScore}</p>
                 <button
                   onClick={startGame}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -246,8 +262,8 @@ export default function Home() {
 
       {/* Roll History */}
       {rolls.length > 0 && (
-        <div className="w-full max-w-2xl">
-          <h3 className="text-xl font-semibold mb-4 text-center">Roll History</h3>
+        <div className="w-full max-w-2xl mb-1">
+          <h3 className="text-xl font-semibold mb-1 text-center">Roll History</h3>
           <div className="grid grid-cols-5 gap-2 text-center">
             {rolls.map((roll, index) => (
               <div key={roll.id} className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
@@ -261,7 +277,7 @@ export default function Home() {
       )}
 
       {/* Navigation Links */}
-      <div className="flex gap-4 items-center pt-4">
+      <div className="flex gap-4 items-center pt-1">
         <Link
           className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
           href="/leaderboard"
@@ -276,6 +292,7 @@ export default function Home() {
         </Link>
 
       </div>
+    </div>
     </div>
   );
 }

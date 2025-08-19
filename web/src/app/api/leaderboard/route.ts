@@ -12,7 +12,11 @@ export async function GET(req: NextRequest) {
 
 	try {
 		const games = await prisma.game.findMany({
-			orderBy: [{ totalScore: 'desc' }, { createdAt: 'asc' }],
+			where: {
+				completedAt: { not: null },
+				rollCount: 10
+			},
+			orderBy: [{ totalScore: 'desc' }, { createdAt: 'desc' }],
 			take,
 			select: {
 				id: true,

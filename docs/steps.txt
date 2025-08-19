@@ -41,7 +41,8 @@
 
 - **6. Leaderboard page**
   - `app/leaderboard/page.tsx`: table with `playerName`, `totalScore`, `createdAt`.
-  - Pagination or top-N; link to a game detail page `app/game/[id]/page.tsx` showing roll history.
+  - show top 100 with a page feature
+  - tiebreaker is createdAt, with more recently above less recently 
 
 - **7. Stats page**
   - `app/stats/page.tsx`:

@@ -38,7 +38,7 @@ export default function RootLayout({
               </nav>
             </div>
           </header>
-          <main className="flex-1 flex items-center justify-center">
+          <main className="flex-1">
             {children}
           </main>
         </div>

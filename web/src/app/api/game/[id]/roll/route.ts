@@ -4,17 +4,23 @@ import type { Prisma } from '@prisma/client'
 
 export const runtime = 'nodejs'
 
-function randomDie(): number {
-	return Math.floor(Math.random() * 6) + 1
-}
-
-export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
 	const { id: gameId } = await context.params
 	if (!gameId) {
 		return NextResponse.json({ error: 'Missing game id' }, { status: 400 })
 	}
 
 	try {
+		// Parse the request body to get the actual dice values
+		const body = await req.json()
+		const { dieA, dieB } = body
+
+		// Validate that we received the dice values
+		if (typeof dieA !== 'number' || typeof dieB !== 'number' || 
+			dieA < 1 || dieA > 6 || dieB < 1 || dieB > 6) {
+			return NextResponse.json({ error: 'Invalid dice values' }, { status: 400 })
+		}
+
 		const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
 			const game = await tx.game.findUnique({ where: { id: gameId } })
 			if (!game) {
@@ -27,8 +33,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
 				return { status: 400 as const, body: { error: 'Max rolls reached' } }
 			}
 
-			const dieA = randomDie()
-			const dieB = randomDie()
+			// Use the actual dice values from the physics simulation
 			const sum = dieA + dieB
 			const index = game.rollCount
 

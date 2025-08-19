@@ -12,14 +12,18 @@
     "db:push": "prisma db push",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:wipe": "tsx prisma/wipe-leaderboard.ts",
     "db:generate:prod": "prisma generate --schema prisma/schema.postgres.prisma",
     "db:migrate:prod:create": "prisma migrate dev --create-only --schema prisma/schema.postgres.prisma",
     "db:deploy:prod": "prisma migrate deploy --schema prisma/schema.postgres.prisma"
   },
   "dependencies": {
+    "@3d-dice/dice-box": "^1.0.8",
     "@prisma/client": "^5.22.0",
     "@react-three/drei": "^10.7.3",
     "@react-three/fiber": "^9.3.0",
+    "cannon-es": "^0.20.0",
     "next": "15.4.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -31,10 +35,12 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.179.0",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
     "prisma": "^5.22.0",
     "tailwindcss": "^4",
+    "tsx": "^4.20.4",
     "typescript": "^5"
   }
 }
