@@ -181,10 +181,22 @@ export default function Home() {
       {/* Dice Canvas */}
       <div className="w-full max-w-2xl mb-1">
         <DiceCanvas 
-          isRolling={isRolling}
+          isRolling={isRolling} 
           lastRoll={rolls.length > 0 ? rolls[rolls.length - 1] : null}
+          rolls={rolls}
           onRollComplete={handleRollComplete}
         />
+        
+        {game && (
+          <div className="text-center mt-4">
+            <div className="text-2xl font-bold mb-2">
+              Score: {game.totalScore}
+            </div>
+            <div className="text-lg text-gray-600 mb-4">
+              Rolls: {game.rollCount}/10
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Game Controls */}
@@ -260,22 +272,8 @@ export default function Home() {
         )}
       </div>
 
-      {/* Roll History */}
-      {rolls.length > 0 && (
-        <div className="w-full max-w-2xl mb-1">
-          <h3 className="text-xl font-semibold mb-1 text-center">Roll History</h3>
-          <div className="grid grid-cols-5 gap-2 text-center">
-            {rolls.map((roll, index) => (
-              <div key={roll.id} className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <div className="text-sm text-gray-600 dark:text-gray-400">Roll {index + 1}</div>
-                <div className="text-lg font-bold">{roll.dieA} + {roll.dieB}</div>
-                <div className="text-sm text-blue-600 dark:text-blue-400">= {roll.sum}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* Remove the Roll History section - it's now in DiceCanvas */}
+      
       {/* Navigation Links */}
       <div className="flex gap-4 items-center pt-1">
         <Link
