@@ -23,58 +23,89 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
   const diceBoxRef = useRef<any>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasRestoredDice, setHasRestoredDice] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     const initDiceBox = async () => {
       try {
-        const DiceBox = await import('@3d-dice/dice-box')
-
-        if (!diceContainerRef.current) {
-          setError("Container not found")
-          return
-        }
-
-        const assetPath = "/assets/dice-box/"
-
-        diceBoxRef.current = new DiceBox.default("#dice-container", {
-          assetPath: assetPath,
+        console.log('Initializing DiceBox...')
+        
+        // Import DiceBox dynamically to avoid SSR issues
+        const DiceBox = (await import('@3d-dice/dice-box')).default
+        
+        // Create new DiceBox instance with minimal physics for static display
+        diceBoxRef.current = new DiceBox("#dice-container", {
           theme: "default",
+          assetPath: "/assets/dice-box/",
           scale: 10.0,
           gravity: 0.5,
           mass: 0.05,
           friction: 0.1,
           restitution: 0.75
         })
-
-        try {
-          console.log('Initializing dice-box...')
-          const result = diceBoxRef.current.init()
-          if (result && typeof result.then === 'function') {
-            await result
-          }
-          console.log('Dice-box initialized successfully')
-          
-          // Test if dice-box is working
-          console.log('DiceBox instance:', diceBoxRef.current)
-          console.log('DiceBox methods:', Object.getOwnPropertyNames(diceBoxRef.current))
-          
-        } catch (initError) {
-          console.error("Init error:", initError)
-          throw initError
-        }
-
+        
+        await diceBoxRef.current.init()
+        console.log('DiceBox initialized successfully')
+        
         setIsInitialized(true)
-        setError(null)
-
-      } catch (err) {
-        console.error("Failed to initialize dice-box:", err)
-        setError(`Initialization failed: ${err instanceof Error ? err.message : String(err)}`)
+      } catch (error) {
+        console.error('Failed to initialize DiceBox:', error)
+        setError('Failed to initialize dice')
       }
     }
     initDiceBox()
   }, [])
+
+  // Reset restoration flag when component unmounts/remounts
+  useEffect(() => {
+    return () => {
+      // Reset the flag when component unmounts so it can work again when navigating back
+      setHasRestoredDice(false)
+    }
+  }, [])
+
+  // Re-render dice when rolls change (e.g., after page reload with restored game)
+  useEffect(() => {
+    // Only run this effect once when first mounting with existing rolls
+    if (hasRestoredDice) return
+    
+    console.log('Rolls effect triggered:', { 
+      hasDiceBox: !!diceBoxRef.current, 
+      isInitialized, 
+      rollsLength: rolls.length 
+    })
+    
+    if (diceBoxRef.current && isInitialized && rolls.length > 0) {
+      console.log('Re-rendering dice for restored game with', rolls.length, 'rolls')
+      
+      // Mark that we've restored the dice so this effect doesn't run again
+      setHasRestoredDice(true)
+      
+      // Show the dice statically without animation
+      const lastRoll = rolls[rolls.length - 1]
+      if (lastRoll) {
+        console.log('Showing restored dice statically:', lastRoll.dieA, '+', lastRoll.dieB)
+        
+        // Clear any existing dice
+        diceBoxRef.current.clear()
+        
+        // Show dice with values but without triggering roll animation
+        setTimeout(() => {
+          if (diceBoxRef.current) {
+            try {
+              // Use roll with values but set callback to empty to prevent animation completion
+              diceBoxRef.current.onRollComplete = () => {}
+              diceBoxRef.current.roll("2d6", { values: [lastRoll.dieA, lastRoll.dieB] })
+            } catch (error) {
+              console.error('Error showing restored dice:', error)
+            }
+          }
+        }, 100)
+      }
+    }
+  }, [rolls, isInitialized, hasRestoredDice])
 
   useEffect(() => {
     if (!diceBoxRef.current || !isRolling) return
@@ -82,6 +113,7 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
     if (isRolling) {
       try {
         console.log('Starting dice roll animation...')
+        
         diceBoxRef.current.clear()
         
         // Set up roll completion callback to get actual dice results
@@ -103,7 +135,7 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
 
         // Roll the dice and wait for the callback
         diceBoxRef.current.roll("2d6")
-
+        
       } catch (err) {
         console.error("Error rolling dice:", err)
         setError("Error rolling dice")
@@ -128,28 +160,9 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
   }
 
   return (
-    <div className="w-full h-[500px] flex items-center justify-center gap-6">
-      {/* Left Side - Theme Selector */}
-      <div className="w-48 flex-shrink-0">
-        <label htmlFor="theme-select" className="block text-base font-semibold text-gray-900 dark:text-white mb-2">
-          Dice Theme
-        </label>
-        <select
-          id="theme-select"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          disabled={isRolling}
-        >
-          <option value="default">Default</option>
-          <option value="wooden">Wooden</option>
-          <option value="stone">Stone</option>
-          <option value="rust">Rust</option>
-          <option value="smooth">Smooth</option>
-          <option value="smooth-pip">Pips</option>
-        </select>
-      </div>
-
-      {/* Center - Dice Container */}
-      <div className="relative">
+    <div className="w-full flex flex-col items-center">
+      {/* Dice Container */}
+      <div className="relative mb-4">
         <div
           id="dice-container"
           ref={diceContainerRef}
@@ -172,22 +185,20 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
         )}
       </div>
 
-      {/* Right Side - Roll History */}
-      <div className="w-48 flex-shrink-0">
-        <h3 className="block text-base font-semibold text-gray-900 dark:text-white mb-2">Roll History</h3>
-        <div className="h-96 overflow-y-auto">
+      {/* Roll History */}
+      <div className="w-full max-w-2xl">
+        <h3 className="text-center text-base font-semibold text-gray-900 dark:text-white mb-2">Roll History</h3>
+        <div className="grid grid-cols-5 gap-1.5">
           {rolls.length > 0 ? (
-            <div className="grid grid-cols-1 gap-2 text-center">
-              {rolls.map((roll, index) => (
-                <div key={roll.id} className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <div className="text-sm text-gray-600 dark:text-gray-300">Roll {index + 1}</div>
-                  <div className="text-lg font-bold text-gray-900 dark:text-white">{roll.dieA} + {roll.dieB}</div>
-                  <div className="text-sm text-blue-600 dark:text-blue-400">= {roll.sum}</div>
-                </div>
-              ))}
-            </div>
+            rolls.map((roll, index) => (
+              <div key={roll.id} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded text-center text-xs">
+                <div className="text-gray-600 dark:text-gray-400 mb-0.5">#{index + 1}</div>
+                <div className="font-bold text-gray-900 dark:text-white text-sm">{roll.dieA}+{roll.dieB}</div>
+                <div className="text-blue-600 dark:text-blue-400">{roll.sum}</div>
+              </div>
+            ))
           ) : (
-            <div className="text-center text-gray-500 dark:text-gray-400 text-sm">
+            <div className="col-span-5 text-center text-gray-500 dark:text-gray-400 text-xs py-3">
               No rolls yet
             </div>
           )}

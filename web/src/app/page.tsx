@@ -58,6 +58,124 @@ export default function Home() {
   const [showNameInput, setShowNameInput] = useState(false);
   const [playerName, setPlayerName] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
+  const [wasGameRestored, setWasGameRestored] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  // Set isClient to true after component mounts to avoid hydration issues
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Load game state from localStorage after component mounts
+  useEffect(() => {
+    if (isClient) {
+      try {
+        const savedGame = localStorage.getItem('currentGame');
+        if (savedGame) {
+          const parsedGame = JSON.parse(savedGame);
+          // Validate that the saved game has the required properties
+          if (parsedGame && typeof parsedGame === 'object' && 
+              'id' in parsedGame && 'rollCount' in parsedGame && 'totalScore' in parsedGame) {
+            setGame(parsedGame);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing saved game from localStorage:', error);
+        localStorage.removeItem('currentGame');
+      }
+
+      try {
+        const savedRolls = localStorage.getItem('currentRolls');
+        if (savedRolls) {
+          const parsedRolls = JSON.parse(savedRolls);
+          // Validate that the saved rolls is an array
+          if (Array.isArray(parsedRolls)) {
+            setRolls(parsedRolls);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing saved rolls from localStorage:', error);
+        localStorage.removeItem('currentRolls');
+      }
+
+      const savedPlayerName = localStorage.getItem('currentPlayerName');
+      if (savedPlayerName) {
+        setPlayerName(savedPlayerName);
+      }
+
+      // Check if game was restored from localStorage
+      if (localStorage.getItem('currentGame') && localStorage.getItem('currentRolls')) {
+        setWasGameRestored(true);
+        console.log('Game restored from localStorage on initial load');
+        
+        // Clear the restored message after a few seconds
+        const timer = setTimeout(() => setWasGameRestored(false), 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isClient]);
+
+
+
+  // Save game state to localStorage whenever it changes
+  useEffect(() => {
+    if (isClient) {
+      if (game) {
+        localStorage.setItem('currentGame', JSON.stringify(game));
+      } else {
+        localStorage.removeItem('currentGame');
+      }
+    }
+  }, [game, isClient]);
+
+  // Save rolls to localStorage whenever they change
+  useEffect(() => {
+    if (isClient) {
+      if (rolls.length > 0) {
+        localStorage.setItem('currentRolls', JSON.stringify(rolls));
+      } else {
+        localStorage.removeItem('currentRolls');
+      }
+    }
+  }, [rolls, isClient]);
+
+  // Save player name to localStorage whenever it changes
+  useEffect(() => {
+    if (isClient) {
+      if (playerName.trim()) {
+        localStorage.setItem('currentPlayerName', playerName);
+      } else {
+        localStorage.removeItem('currentPlayerName');
+      }
+    }
+  }, [playerName, isClient]);
+
+  // Clear localStorage when game is completed
+  const clearGameState = () => {
+    if (isClient) {
+      localStorage.removeItem('currentGame');
+      localStorage.removeItem('currentRolls');
+      localStorage.removeItem('currentPlayerName');
+      console.log('Game state cleared from localStorage');
+    }
+  };
+
+  // Debug function to show current localStorage state
+  const debugLocalStorage = () => {
+    if (isClient) {
+      console.log('Current localStorage state:');
+      console.log('Game:', localStorage.getItem('currentGame'));
+      console.log('Rolls:', localStorage.getItem('currentRolls'));
+      console.log('Player Name:', localStorage.getItem('currentPlayerName'));
+    }
+  };
+
+  // Debug localStorage on component mount
+  useEffect(() => {
+    if (isClient) {
+      debugLocalStorage();
+    }
+  }, [isClient]);
 
   // Start a new game
   const startGame = async () => {
@@ -73,6 +191,11 @@ export default function Home() {
         setRolls([]);
         setShowNameInput(false);
         setPlayerName("");
+        
+        // Clear any previous game state from localStorage
+        if (isClient) {
+          clearGameState();
+        }
         
         // Automatically trigger the first roll
         setTimeout(() => {
@@ -142,12 +265,28 @@ export default function Home() {
         const completedGame = await response.json() as Game;
         setGame(completedGame);
         setShowNameInput(false);
+        
+        // Clear game state from localStorage after completion
+        if (isClient) {
+          clearGameState();
+        }
       }
     } catch (error) {
       console.error('Failed to complete game:', error);
     } finally {
       setIsCompleting(false);
     }
+  };
+
+  // Clear current game and start over
+  const clearAndStartOver = () => {
+    if (isClient) {
+      clearGameState();
+    }
+    setGame(null);
+    setRolls([]);
+    setShowNameInput(false);
+    setPlayerName("");
   };
 
   // Check if game is complete
@@ -175,6 +314,14 @@ export default function Home() {
               Player: {game.playerName}
             </p>
           )}
+          {wasGameRestored && (
+            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+              ✓ Game restored from previous session
+            </p>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            💡 If dice don't appear, try refreshing the page
+          </p>
         </div>
       )}
 
@@ -268,12 +415,22 @@ export default function Home() {
                 </button>
               </div>
             )}
+            
+            {/* Add Start Over button for ongoing games */}
+            {game && !game.completedAt && game.rollCount > 0 && (
+              <div className="text-center mt-2">
+                <button
+                  onClick={clearAndStartOver}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                >
+                  Start Over
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Remove the Roll History section - it's now in DiceCanvas */}
-      
       {/* Navigation Links */}
       <div className="flex gap-4 items-center pt-1">
         <Link
