@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { withRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { handleUnexpectedError } from '@/lib/errors'
 
 export const runtime = 'nodejs'
 
-export async function GET() {
+async function GETHandler(req: NextRequest) {
 	try {
 		// Only count completed games
 		const [gameAgg, sumGroups, pairGroups] = await Promise.all([
@@ -50,12 +52,6 @@ export async function GET() {
 			}
 		}
 
-		// Debug logging
-		console.log('API Debug - Game Agg:', gameAgg)
-		console.log('API Debug - Sum Groups:', sumGroups)
-		console.log('API Debug - Sum Distribution:', sumDistribution)
-		console.log('API Debug - Total Games:', totalGames)
-
 		return NextResponse.json({
 			totalScoreAllTime,
 			totalGames,
@@ -63,8 +59,10 @@ export async function GET() {
 			sumDistribution,
 			pairDistribution,
 		})
-	} catch (_error) {
-		console.error('API Error:', _error)
-		return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 })
+	} catch (error) {
+		return handleUnexpectedError(error)
 	}
-} 
+}
+
+// Apply rate limiting
+export const GET = withRateLimit(RATE_LIMITS.READ_ONLY, GETHandler) 
