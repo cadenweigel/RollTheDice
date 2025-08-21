@@ -3,9 +3,19 @@
 import { useState } from 'react'
 import DiceCanvas from '@/components/DiceCanvas'
 
+interface Roll {
+  id: string;
+  index: number;
+  dieA: number;
+  dieB: number;
+  sum: number;
+  createdAt: string;
+}
+
 export default function DiceTestPage() {
   const [isRolling, setIsRolling] = useState(false)
   const [testRoll, setTestRoll] = useState<{ dieA: number; dieB: number } | null>(null)
+  const [rolls, setRolls] = useState<Roll[]>([])
 
   const rollTestDice = () => {
     setIsRolling(true)
@@ -20,6 +30,11 @@ export default function DiceTestPage() {
     setTimeout(() => {
       setIsRolling(false)
     }, 1500)
+  }
+
+  const handleRollComplete = (result: { dieA: number; dieB: number }) => {
+    // This is just a test page, so we don't need to do anything with the result
+    console.log('Roll completed:', result)
   }
 
   return (
@@ -58,6 +73,8 @@ export default function DiceTestPage() {
         <DiceCanvas 
           isRolling={isRolling}
           lastRoll={testRoll}
+          rolls={rolls}
+          onRollComplete={handleRollComplete}
         />
       </div>
 
