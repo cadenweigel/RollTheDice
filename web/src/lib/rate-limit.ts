@@ -18,6 +18,12 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000)
 
+// Development helper to clear all rate limits
+export function clearAllRateLimits() {
+  rateLimitStore.clear()
+  console.log('All rate limits cleared')
+}
+
 export interface RateLimitConfig {
   maxRequests: number
   windowMs: number
@@ -89,7 +95,7 @@ export const RATE_LIMITS = {
   
   // Game creation
   CREATE_GAME: {
-    maxRequests: 10,
+    maxRequests: 50,
     windowMs: 60 * 60 * 1000, // 1 hour
   },
   

@@ -36,7 +36,9 @@ export default function LeaderboardPage() {
       // Fetch more games than we need to calculate total pages
       const response = await fetch(`/api/leaderboard?limit=100`)
       if (!response.ok) {
-        throw new Error('Failed to fetch leaderboard')
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Leaderboard API error:', response.status, errorData)
+        throw new Error(`Failed to fetch leaderboard: ${response.status} ${errorData.error || 'Unknown error'}`)
       }
       
       const data: LeaderboardResponse = await response.json()
@@ -45,6 +47,7 @@ export default function LeaderboardPage() {
       // Calculate total pages (100 games max, 25 per page = 4 pages max)
       setTotalPages(Math.ceil(Math.min(data.games.length, 100) / gamesPerPage))
     } catch (err) {
+      console.error('Fetch leaderboard error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
@@ -135,7 +138,6 @@ export default function LeaderboardPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Score
                     </th>
-
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Completed
                     </th>
@@ -166,7 +168,6 @@ export default function LeaderboardPage() {
                           {game.totalScore}
                         </span>
                       </td>
-
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-600">
                           {game.completedAt ? formatDate(game.completedAt) : 'In Progress'}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 
 interface Roll {
   id: string;
@@ -16,14 +16,182 @@ interface DiceCanvasProps {
   lastRoll: { dieA: number; dieB: number; } | null;
   rolls: Roll[];
   onRollComplete?: (result: { dieA: number; dieB: number }) => void;
+  isHighScore?: boolean;
 }
 
-export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete }: DiceCanvasProps) {
+// Confetti component for high scores
+function Confetti() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    
+    const particles: Array<{
+      x: number
+      y: number
+      vx: number
+      vy: number
+      color: string
+      size: number
+      life: number
+    }> = []
+    
+    const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']
+    
+    // Create confetti particles
+    for (let i = 0; i < 150; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: -10,
+        vx: (Math.random() - 0.5) * 8,
+        vy: Math.random() * 3 + 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 8 + 4,
+        life: 1
+      })
+    }
+    
+    let animationId: number
+    
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      
+      particles.forEach((particle, index) => {
+        particle.x += particle.vx
+        particle.y += particle.vy
+        particle.vy += 0.1 // gravity
+        particle.life -= 0.01
+        
+        if (particle.life > 0) {
+          ctx.save()
+          ctx.globalAlpha = particle.life
+          ctx.fillStyle = particle.color
+          ctx.fillRect(particle.x, particle.y, particle.size, particle.size)
+          ctx.restore()
+        } else {
+          particles.splice(index, 1)
+        }
+      })
+      
+      if (particles.length > 0) {
+        animationId = requestAnimationFrame(animate)
+      } else {
+        // Clean up canvas when animation is done
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+      }
+    }
+    
+    animate()
+    
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId)
+      }
+    }
+  }, [])
+  
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 pointer-events-none z-50"
+      style={{ position: 'fixed', top: 0, left: 0 }}
+    />
+  )
+}
+
+// Mobile haptics helper
+const triggerHaptic = (type: 'light' | 'medium' | 'heavy' | 'double-six' = 'medium') => {
+  if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+    const patterns = {
+      light: [10],
+      medium: [20],
+      heavy: [30],
+      'double-six': [50, 100, 50, 100, 50] // Special pattern for double six
+    }
+    navigator.vibrate(patterns[type])
+  }
+}
+
+// Celebration sound effect
+const playCelebrationSound = () => {
+  if (typeof window !== 'undefined' && 'AudioContext' in window) {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      
+      // Create a simple celebration sound (ascending notes)
+      const frequencies = [523.25, 659.25, 783.99, 1046.50] // C5, E5, G5, C6
+      const duration = 0.15
+      
+      frequencies.forEach((freq, index) => {
+        setTimeout(() => {
+          const oscillator = audioContext.createOscillator()
+          const gainNode = audioContext.createGain()
+          
+          oscillator.connect(gainNode)
+          gainNode.connect(audioContext.destination)
+          
+          oscillator.frequency.setValueAtTime(freq, audioContext.currentTime)
+          oscillator.type = 'sine'
+          
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration)
+          
+          oscillator.start(audioContext.currentTime)
+          oscillator.stop(audioContext.currentTime + duration)
+        }, index * 100)
+      })
+    } catch (error) {
+      console.log('Audio not supported or blocked')
+    }
+  }
+}
+
+export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete, isHighScore }: DiceCanvasProps) {
   const diceContainerRef = useRef<HTMLDivElement>(null)
   const diceBoxRef = useRef<any>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasRestoredDice, setHasRestoredDice] = useState(false)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [showDoubleSix, setShowDoubleSix] = useState(false)
+
+  // Show confetti when high score is achieved
+  useEffect(() => {
+    if (isHighScore && !showConfetti) {
+      setShowConfetti(true)
+      // Play celebration sound
+      playCelebrationSound()
+      // Special haptic feedback for high score
+      triggerHaptic('heavy')
+      // Hide confetti after 3 seconds
+      const timer = setTimeout(() => setShowConfetti(false), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [isHighScore, showConfetti])
+
+  // Show double six celebration
+  useEffect(() => {
+    if (rolls.length > 0) {
+      const lastRoll = rolls[rolls.length - 1]
+      if (lastRoll && lastRoll.dieA === 6 && lastRoll.dieB === 6 && !showDoubleSix) {
+        setShowDoubleSix(true)
+        // Play special double six sound
+        playCelebrationSound()
+        // Special haptic for double six
+        triggerHaptic('double-six')
+        // Hide celebration after 2 seconds
+        const timer = setTimeout(() => setShowDoubleSix(false), 2000)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [rolls, showDoubleSix])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -114,6 +282,9 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
       try {
         console.log('Starting dice roll animation...')
         
+        // Trigger haptic feedback when starting roll
+        triggerHaptic('medium')
+        
         diceBoxRef.current.clear()
         
         // Set up roll completion callback to get actual dice results
@@ -126,6 +297,16 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
               const dieA = rolls[0].value || rolls[0].roll || 1
               const dieB = rolls[1].value || rolls[1].roll || 1
               console.log('Dice results from animation:', { dieA, dieB })
+              
+              // Trigger haptic feedback based on roll result
+              if (dieA === 6 && dieB === 6) {
+                triggerHaptic('double-six') // Special haptic for double 6
+              } else if (dieA + dieB >= 10) {
+                triggerHaptic('medium') // Good roll
+              } else {
+                triggerHaptic('light') // Regular roll
+              }
+              
               if (onRollComplete) {
                 onRollComplete({ dieA, dieB })
               }
@@ -161,6 +342,22 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
 
   return (
     <div className="w-full flex flex-col items-center">
+      {/* Confetti overlay for high scores */}
+      {showConfetti && <Confetti />}
+      
+      {/* Double Six Celebration */}
+      {showDoubleSix && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-40">
+          <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-yellow-900 px-8 py-4 rounded-lg shadow-2xl transform scale-110 animate-bounce">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🎲🎲</div>
+              <div className="text-2xl font-bold">DOUBLE SIX!</div>
+              <div className="text-lg">Lucky roll!</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Dice Container */}
       <div className="relative mb-4">
         <div
@@ -190,13 +387,46 @@ export default function DiceCanvas({ isRolling, lastRoll, rolls, onRollComplete 
         <h3 className="text-center text-base font-semibold text-gray-900 dark:text-white mb-2">Roll History</h3>
         <div className="grid grid-cols-5 gap-1.5">
           {rolls.length > 0 ? (
-            rolls.map((roll, index) => (
-              <div key={roll.id} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded text-center text-xs">
-                <div className="text-gray-600 dark:text-gray-400 mb-0.5">#{index + 1}</div>
-                <div className="font-bold text-gray-900 dark:text-white text-sm">{roll.dieA}+{roll.dieB}</div>
-                <div className="text-blue-600 dark:text-blue-400">{roll.sum}</div>
-              </div>
-            ))
+            rolls.map((roll, index) => {
+              const isGoldenRoll = roll.dieA === 6 && roll.dieB === 6
+              return (
+                <div 
+                  key={roll.id} 
+                  className={`p-1.5 rounded text-center text-xs transition-all duration-300 ${
+                    isGoldenRoll 
+                      ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-lg transform scale-105' 
+                      : 'bg-gray-100 dark:bg-gray-800'
+                  }`}
+                >
+                  <div className={`mb-0.5 ${
+                    isGoldenRoll 
+                      ? 'text-yellow-900 font-bold' 
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}>
+                    #{index + 1}
+                  </div>
+                  <div className={`font-bold text-sm ${
+                    isGoldenRoll 
+                      ? 'text-yellow-900' 
+                      : 'text-gray-900 dark:text-white'
+                  }`}>
+                    {roll.dieA}+{roll.dieB}
+                  </div>
+                  <div className={`${
+                    isGoldenRoll 
+                      ? 'text-yellow-900 font-bold' 
+                      : 'text-blue-600 dark:text-blue-400'
+                  }`}>
+                    {roll.sum}
+                  </div>
+                  {isGoldenRoll && (
+                    <div className="text-xs text-yellow-900 font-bold mt-1">
+                      ✨
+                    </div>
+                  )}
+                </div>
+              )
+            })
           ) : (
             <div className="col-span-5 text-center text-gray-500 dark:text-gray-400 text-xs py-3">
               No rolls yet

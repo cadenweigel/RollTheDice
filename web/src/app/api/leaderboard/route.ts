@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { withRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
-import { LeaderboardQuerySchema } from '@/lib/validation'
 import { handleUnexpectedError } from '@/lib/errors'
-import { z } from 'zod'
 
 export const runtime = 'nodejs'
 
@@ -11,28 +9,36 @@ async function GETHandler(req: NextRequest) {
 	try {
 		const { searchParams } = new URL(req.url)
 		
-		// Validate query parameters using Zod
-		let validatedParams: { limit: number; page: number }
-		try {
-			validatedParams = LeaderboardQuerySchema.parse({
-				limit: searchParams.get('limit'),
-				page: searchParams.get('page'),
-			})
-		} catch (error) {
-			if (error instanceof z.ZodError) {
+		// Get query parameters with defaults
+		const limitParam = searchParams.get('limit')
+		const pageParam = searchParams.get('page')
+		
+		// Parse and validate parameters manually for better error handling
+		let limit = 50
+		let page = 1
+		
+		if (limitParam) {
+			const parsedLimit = parseInt(limitParam, 10)
+			if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
 				return NextResponse.json({
-					error: 'Invalid query parameters',
-					code: 'INVALID_INPUT',
-					details: error.issues,
+					error: 'Invalid limit parameter. Must be a number between 1 and 100.',
+					code: 'INVALID_LIMIT',
 				}, { status: 400 })
 			}
-			return NextResponse.json({
-				error: 'Invalid query parameters',
-				code: 'INVALID_INPUT',
-			}, { status: 400 })
+			limit = parsedLimit
 		}
-
-		const { limit, page } = validatedParams
+		
+		if (pageParam) {
+			const parsedPage = parseInt(pageParam, 10)
+			if (isNaN(parsedPage) || parsedPage < 1) {
+				return NextResponse.json({
+					error: 'Invalid page parameter. Must be a positive number.',
+					code: 'INVALID_PAGE',
+				}, { status: 400 })
+			}
+			page = parsedPage
+		}
+		
 		const skip = (page - 1) * limit
 
 		// Get total count for pagination
@@ -74,6 +80,7 @@ async function GETHandler(req: NextRequest) {
 			},
 		})
 	} catch (error) {
+		console.error('Leaderboard API error:', error)
 		return handleUnexpectedError(error)
 	}
 }

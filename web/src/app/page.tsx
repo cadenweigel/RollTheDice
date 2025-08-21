@@ -60,11 +60,41 @@ export default function Home() {
   const [isCompleting, setIsCompleting] = useState(false);
   const [wasGameRestored, setWasGameRestored] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [gameExpired, setGameExpired] = useState(false);
+  const [isHighScore, setIsHighScore] = useState(false);
+  const [highScoreThreshold, setHighScoreThreshold] = useState(0);
 
   // Set isClient to true after component mounts to avoid hydration issues
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Load high score threshold on mount
+  useEffect(() => {
+    const loadHighScoreThreshold = async () => {
+      try {
+        const response = await fetch('/api/leaderboard?limit=1');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.games && data.games.length > 0) {
+            // Set threshold to top score - 10 points to make it achievable
+            setHighScoreThreshold(Math.max(0, data.games[0].totalScore - 10));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load high score threshold:', error);
+      }
+    };
+    
+    loadHighScoreThreshold();
+  }, []);
+
+  // Check if current score is a high score
+  useEffect(() => {
+    if (game && game.totalScore > highScoreThreshold && !isHighScore) {
+      setIsHighScore(true);
+    }
+  }, [game?.totalScore, highScoreThreshold, isHighScore]);
 
   // Load game state from localStorage after component mounts
   useEffect(() => {
@@ -115,7 +145,29 @@ export default function Home() {
     }
   }, [isClient]);
 
-
+  // Validate current game on mount
+  useEffect(() => {
+    if (isClient && game) {
+      // Check if the current game still exists in the database
+      const validateGame = async () => {
+        try {
+          const response = await fetch(`/api/game/${game.id}`);
+          if (!response.ok) {
+            // Game not found, clear stale data
+            console.warn('Stored game not found in database, clearing stale data');
+            clearGameState();
+            setGame(null);
+            setRolls([]);
+            setGameExpired(true);
+          }
+        } catch (error) {
+          console.error('Error validating game:', error);
+        }
+      };
+      
+      validateGame();
+    }
+  }, [isClient, game]);
 
   // Save game state to localStorage whenever it changes
   useEffect(() => {
@@ -191,6 +243,8 @@ export default function Home() {
         setRolls([]);
         setShowNameInput(false);
         setPlayerName("");
+        setGameExpired(false);
+        setIsHighScore(false); // Reset high score flag
         
         // Clear any previous game state from localStorage
         if (isClient) {
@@ -201,9 +255,20 @@ export default function Home() {
         setTimeout(() => {
           rollDice();
         }, 100); // Small delay to ensure game state is set
+      } else if (response.status === 429) {
+        // Rate limited
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Rate limited:', errorData);
+        alert('Too many requests. Please wait a moment before trying again.');
+      } else {
+        // Other error
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to start game:', response.status, errorData);
+        alert('Failed to start game. Please try again.');
       }
     } catch (error) {
       console.error('Failed to start game:', error);
+      alert('Failed to start game. Please try again.');
     }
   };
 
@@ -242,10 +307,27 @@ export default function Home() {
           totalScore: prev.totalScore + rollData.sum 
         } : null);
         setIsRolling(false);
+      } else if (response.status === 404) {
+        // Game not found - clear stale data and prompt user to start new game
+        console.warn('Game not found, clearing stale data');
+        if (isClient) {
+          clearGameState();
+        }
+        setGame(null);
+        setRolls([]);
+        setIsRolling(false);
+        setGameExpired(true);
+      } else {
+        // Other error
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to record roll:', response.status, errorData);
+        setIsRolling(false);
+        alert('Failed to record roll. Please try again.');
       }
     } catch (error) {
       console.error('Failed to record roll:', error);
       setIsRolling(false);
+      alert('Failed to record roll. Please try again.');
     }
   };
 
@@ -287,6 +369,8 @@ export default function Home() {
     setRolls([]);
     setShowNameInput(false);
     setPlayerName("");
+    setGameExpired(false);
+    setIsHighScore(false); // Reset high score flag
   };
 
   // Check if game is complete
@@ -302,6 +386,27 @@ export default function Home() {
     <div className="w-full flex items-center justify-center">
       <div className="w-full max-w-4xl px-6 flex flex-col items-center">
       <h1 className="text-4xl font-bold text-center mb-1">Roll The Dice</h1>
+      
+      {/* High Score Indicator */}
+      {isHighScore && (
+        <div className="text-center mb-4 p-3 bg-gradient-to-r from-yellow-400 to-yellow-600 text-yellow-900 rounded-lg shadow-lg animate-pulse">
+          <p className="font-bold text-lg">🎉 HIGH SCORE! 🎉</p>
+        </div>
+      )}
+      
+      {/* Game Expired Message */}
+      {gameExpired && (
+        <div className="text-center mb-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-lg">
+          <p className="font-medium">Game Session Expired</p>
+          <p className="text-sm">Your previous game session has expired. Please start a new game.</p>
+          <button
+            onClick={() => setGameExpired(false)}
+            className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors text-sm"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       
       {/* Game Status */}
       {game && (
@@ -332,6 +437,7 @@ export default function Home() {
           lastRoll={rolls.length > 0 ? rolls[rolls.length - 1] : null}
           rolls={rolls}
           onRollComplete={handleRollComplete}
+          isHighScore={isHighScore}
         />
         
         {game && (
@@ -408,7 +514,7 @@ export default function Home() {
               <div className="text-center">
                 <p className="text-lg text-green-600 mb-1">Game saved! Final score: {game.totalScore}</p>
                 <button
-                  onClick={startGame}
+                  onClick={clearAndStartOver}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Play Again
@@ -445,7 +551,6 @@ export default function Home() {
         >
           Stats
         </Link>
-
       </div>
     </div>
     </div>

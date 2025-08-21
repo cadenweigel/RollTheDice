@@ -65,6 +65,7 @@
   - Use Postgres (Railway/Supabase). Set `DATABASE_URL`.
   - Run migrations. Configure `NEXT_PUBLIC_*` only for safe public values.
   - Enable image/model hosting for dice assets if used.
+  - vercel 
 
 - **11. Nice-to-haves (later)**
   - Auth (optional) to prevent name spoofing.
