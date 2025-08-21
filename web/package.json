@@ -19,7 +19,8 @@
     "db:wipe": "tsx prisma/wipe-leaderboard.ts",
     "db:generate:prod": "prisma generate --schema prisma/schema.postgres.prisma",
     "db:migrate:prod:create": "prisma migrate dev --create-only --schema prisma/schema.postgres.prisma",
-    "db:deploy:prod": "prisma migrate deploy --schema prisma/schema.postgres.prisma"
+    "db:deploy:prod": "prisma migrate deploy --schema prisma/schema.postgres.prisma",
+    "security:check": "node scripts/security-check.js"
   },
   "dependencies": {
     "@3d-dice/dice-box": "^1.0.8",
