@@ -38,17 +38,16 @@
     "typescript": "^5",
     "zod": "^4.0.17",
     "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4"
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3",
+    "tailwindcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/three": "^0.179.0",
+    "@types/three": "^0.179.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
-    "prisma": "^5.22.0",
     "tsx": "^4.20.4",
     "vitest": "^3.2.4"
   }
