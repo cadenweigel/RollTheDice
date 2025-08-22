@@ -119,7 +119,7 @@ vercel
 
 ### 5.1 In Vercel Dashboard
 1. Go to your project dashboard
-2. Click **Settings** → **Environment Variables**
+2. Click **Settings** → **Environment Variables** 
 3. Add these variables:
 
 ```
