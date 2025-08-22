@@ -3,11 +3,6 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "installCommand": "npm install",
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "runtime": "@vercel/node@18"
-    }
-  },
   "env": {
     "NODE_ENV": "production"
   }
